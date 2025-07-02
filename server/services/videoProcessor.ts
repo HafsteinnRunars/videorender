@@ -8,7 +8,7 @@ import type { InsertVideoJob } from '@shared/schema';
 const TEMP_DIR = './temp';
 const OUTPUT_DIR = './output';
 const TARGET_DURATION = 300; // 5 minutes
-const WEBHOOK_URL = process.env.WEBHOOK_URL || '';
+const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://hook.eu2.make.com/hkxxfxo0fn7kdkgg4icrei2v9oci4zqo';
 
 // Initialize directories
 async function initDirectories() {

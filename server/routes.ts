@@ -106,6 +106,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test webhook environment
+  app.get("/api/webhook-test", (req, res) => {
+    res.json({ 
+      webhook_url: process.env.WEBHOOK_URL || "NOT_SET",
+      env_vars: Object.keys(process.env).filter(k => k.includes('WEBHOOK'))
+    });
+  });
+
   // Serve generated videos
   app.get("/api/videos/:filename", (req, res) => {
     try {
