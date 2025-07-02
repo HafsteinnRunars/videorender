@@ -102,8 +102,8 @@ export default function Dashboard() {
                       <li>• Resolution: 1920x1080 (Full HD)</li>
                       <li>• Format: MP4 (H.264 veryfast)</li>
                       <li>• Audio: AAC 64kbps</li>
-                      <li>• Duration: Exactly 60 minutes</li>
-                      <li>• File Size: ~30-80MB</li>
+                      <li>• Duration: Exactly 5 minutes (testing)</li>
+                      <li>• File Size: ~3-8MB</li>
                     </ul>
                   </div>
 
