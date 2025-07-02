@@ -108,22 +108,30 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       progress: 5
     });
     
-    // Download thumbnail and all songs concurrently
+    // Download files with optimized concurrency
     const thumbnailPath = path.join(jobDir, 'thumbnail.png');
     const songPaths: string[] = [];
     
-    console.log('📥 Starting concurrent downloads...');
-    const downloadPromises = [downloadFile(requestData.thumbnail_url, thumbnailPath)];
+    console.log('📥 Starting ultra-fast downloads with batching...');
     
-    // Download all songs
-    for (let i = 0; i < requestData.songs.length; i++) {
-      const song = requestData.songs[i];
-      const songPath = path.join(jobDir, `song_${i}.mp3`);
-      songPaths.push(songPath);
-      downloadPromises.push(downloadFile(song.file_url, songPath));
+    // Download thumbnail first (smaller, faster)
+    await downloadFile(requestData.thumbnail_url, thumbnailPath);
+    
+    // Download songs in batches of 3 to avoid overwhelming the server
+    const batchSize = 3;
+    for (let i = 0; i < requestData.songs.length; i += batchSize) {
+      const batch = requestData.songs.slice(i, i + batchSize);
+      const batchPromises = batch.map((song, batchIndex) => {
+        const actualIndex = i + batchIndex;
+        const songPath = path.join(jobDir, `song_${actualIndex}.mp3`);
+        songPaths[actualIndex] = songPath;
+        return downloadFile(song.file_url, songPath);
+      });
+      
+      await Promise.all(batchPromises);
+      console.log(`✅ Downloaded batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(requestData.songs.length/batchSize)}`);
     }
     
-    await Promise.all(downloadPromises);
     console.log(`✅ Job ${jobId}: All ${requestData.songs.length + 1} files downloaded`);
     
     // Update progress
@@ -132,20 +140,13 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       progress: 25
     });
     
-    // Calculate total duration
+    // Skip audio analysis - use provided song lengths (much faster!)
+    console.log('🎵 Using provided song durations (ultra-fast mode)...');
     let totalDuration = 0;
-    console.log('🎵 Analyzing song durations...');
     
-    for (let i = 0; i < songPaths.length; i++) {
-      try {
-        const duration = await getAudioDuration(songPaths[i]);
-        console.log(`Song ${i + 1}: "${requestData.songs[i].title}" - ${duration}s`);
-        totalDuration += duration;
-      } catch (error) {
-        console.error(`⚠️ Failed to get duration for song ${i}:`, error);
-        totalDuration += requestData.songs[i].length;
-        console.log(`Song ${i + 1}: Using fallback duration ${requestData.songs[i].length}s`);
-      }
+    for (let i = 0; i < requestData.songs.length; i++) {
+      totalDuration += requestData.songs[i].length;
+      console.log(`Song ${i + 1}: "${requestData.songs[i].title}" - ${requestData.songs[i].length}s (from metadata)`);
     }
     
     console.log(`📊 Total single loop duration: ${Math.round(totalDuration)}s (${Math.round(totalDuration/60)}min)`);
@@ -186,18 +187,11 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     // Update progress
     await storage.updateVideoJob(jobId, { progress: 65 });
     
-    // Concatenate and compress audio files in one step
-    console.log('🎵 Concatenating and compressing audio...');
-    const concatenatedAudioPath = path.join(jobDir, 'concatenated_audio.mp3');
+    // Skip individual concatenation - do everything in one ultra-fast step
+    console.log('🎵 Creating final audio track (ultra-fast mode)...');
+    const trimmedAudioPath = path.join(jobDir, 'final_audio.aac');
     await executeFFmpeg(
-      `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -c:a aac -b:a 64k -ar 44100 -ac 2 "${concatenatedAudioPath}"`
-    );
-    
-    // Trim to exactly 60 minutes with optimized settings
-    console.log('✂️ Trimming to exactly 60 minutes...');
-    const trimmedAudioPath = path.join(jobDir, 'trimmed_audio.aac');
-    await executeFFmpeg(
-      `ffmpeg -i "${concatenatedAudioPath}" -t ${TARGET_DURATION} -c:a aac -b:a 64k -ar 44100 -ac 2 "${trimmedAudioPath}"`
+      `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -t ${TARGET_DURATION} -c:a aac -b:a 64k -ar 44100 -ac 2 "${trimmedAudioPath}"`
     );
     
     // Update job status to creating video
@@ -206,11 +200,11 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       progress: 85
     });
     
-    // Create final 1080p video with optimized compression
-    console.log('🎬 Creating final video with optimized compression...');
+    // Create final video with ultra-fast settings
+    console.log('🎬 Creating final video with ultra-fast encoding...');
     const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
     await executeFFmpeg(
-      `ffmpeg -loop 1 -i "${thumbnailPath}" -i "${trimmedAudioPath}" -c:v libx264 -preset slow -crf 35 -profile:v baseline -level 3.0 -maxrate 500k -bufsize 1000k -c:a aac -b:a 64k -ar 44100 -ac 2 -pix_fmt yuv420p -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} "${outputVideoPath}"`
+      `ffmpeg -loop 1 -i "${thumbnailPath}" -i "${trimmedAudioPath}" -c:v libx264 -preset ultrafast -crf 28 -tune stillimage -x264-params keyint=600:min-keyint=600 -r 1 -c:a copy -pix_fmt yuv420p -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} "${outputVideoPath}"`
     );
     
     console.log(`✅ Job ${jobId}: Video created successfully`);

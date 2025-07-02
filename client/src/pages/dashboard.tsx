@@ -108,14 +108,13 @@ export default function Dashboard() {
                   </div>
 
                   <div className="p-4 bg-yellow-50 rounded-lg">
-                    <h4 className="font-medium text-yellow-900 mb-2">Processing Steps</h4>
+                    <h4 className="font-medium text-yellow-900 mb-2">Processing Steps (Ultra-Fast)</h4>
                     <ol className="text-sm text-yellow-800 space-y-1">
-                      <li>1. Download thumbnail & songs</li>
-                      <li>2. Analyze audio durations</li>
-                      <li>3. Calculate loop sequences</li>
-                      <li>4. Concatenate & trim audio</li>
-                      <li>5. Generate final video</li>
-                      <li>6. Send webhook notification</li>
+                      <li>1. Batch download files (3 at a time)</li>
+                      <li>2. Use metadata durations (skip analysis)</li>
+                      <li>3. One-step audio concatenation</li>
+                      <li>4. Ultra-fast video encoding</li>
+                      <li>5. Send webhook notification</li>
                     </ol>
                   </div>
                 </div>
