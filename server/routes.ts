@@ -8,20 +8,44 @@ import path from "path";
 import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Create video job endpoint
+  // Create video job endpoint (synchronous processing)
   app.post("/api/video-jobs", async (req, res) => {
     try {
       const jobData = insertVideoJobSchema.parse(req.body);
       const job = await storage.createVideoJob(jobData);
       
-      // Start processing in background
-      processVideo(job.id, jobData, storage);
+      console.log(`🎬 Starting synchronous processing for job ${job.id}`);
       
-      res.json({
-        job_id: job.id,
-        status: job.status,
-        message: "Video processing started"
-      });
+      // Process video synchronously - wait for completion
+      try {
+        await processVideo(job.id, jobData, storage);
+        
+        // Get the completed job with video URL
+        const completedJob = await storage.getVideoJob(job.id);
+        
+        res.json({
+          job_id: job.id,
+          status: completedJob?.status || "completed",
+          video_url: completedJob?.video_url,
+          message: "Video processing completed successfully"
+        });
+      } catch (processingError) {
+        console.error(`❌ Processing failed for job ${job.id}:`, processingError);
+        
+        // Update job status to failed
+        await storage.updateVideoJob(job.id, {
+          status: "failed",
+          error_message: processingError instanceof Error ? processingError.message : "Unknown processing error",
+          failed_at: new Date()
+        });
+        
+        res.status(500).json({
+          job_id: job.id,
+          status: "failed",
+          error: "Video processing failed",
+          message: processingError instanceof Error ? processingError.message : "Unknown error"
+        });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 

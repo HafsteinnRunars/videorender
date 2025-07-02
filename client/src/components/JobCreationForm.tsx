@@ -34,11 +34,18 @@ export default function JobCreationForm() {
       const response = await apiRequest("POST", "/api/video-jobs", data);
       return response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Job Created",
-        description: "Video processing has started successfully."
-      });
+    onSuccess: (response: any) => {
+      if (response.status === "completed" && response.video_url) {
+        toast({
+          title: "Video Ready!",
+          description: `Video processed successfully. Job ID: ${response.job_id}`
+        });
+      } else {
+        toast({
+          title: "Video Processing Complete",
+          description: "Video has been processed successfully."
+        });
+      }
       form.reset();
       setSongs([]);
       setThumbnailUrl("");
@@ -243,7 +250,7 @@ export default function JobCreationForm() {
                 className="bg-primary-500 hover:bg-primary-600 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Video className="w-4 h-4 mr-2" />
-                {createJobMutation.isPending ? "Creating..." : "Generate Video"}
+                {createJobMutation.isPending ? "Processing Video (1-6 min)..." : "Generate Video"}
               </Button>
             </div>
           </form>
