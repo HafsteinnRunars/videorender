@@ -100,6 +100,10 @@ This is a full-stack video generation application built with Node.js, Express, R
 
 ## Changelog
 - July 02, 2025. Initial setup
+- July 02, 2025. Converted to synchronous processing (no webhooks)
+- July 02, 2025. Fixed audio looping with actual duration analysis
+- July 02, 2025. Added image validation and proper error handling
+- July 02, 2025. Fixed video URL generation for deployment domains
 
 ## User Preferences
 
