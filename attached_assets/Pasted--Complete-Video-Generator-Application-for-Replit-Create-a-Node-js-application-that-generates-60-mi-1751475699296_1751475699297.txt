@@ -1,0 +1,447 @@
+🎬 Complete Video Generator Application for Replit
+Create a Node.js application that generates 60-minute videos from thumbnails and song playlists. The app receives POST requests, processes videos asynchronously, and sends results to webhooks.
+📋 Requirements Summary:
+
+Input: POST request with thumbnail + 10 songs + metadata
+Output: Exactly 60-minute 1080p MP4 video
+Processing: Loop songs seamlessly until 60 minutes, trim if needed
+Delivery: Send video URL to webhook when complete
+Error Handling: Send failure notifications to webhook
+
+📦 Create package.json:
+json{
+  "name": "video-generator-replit",
+  "version": "1.0.0",
+  "description": "Generates hour-long videos from thumbnails and song playlists",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "uuid": "^9.0.0",
+    "node-cron": "^3.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+🛠️ Create index.js with complete application:
+javascriptconst express = require('express');
+const { exec } = require('child_process');
+const fs = require('fs').promises;
+const path = require('path');
+const fetch = require('node-fetch');
+const { v4: uuidv4 } = require('uuid');
+const cron = require('node-cron');
+
+const app = express();
+app.use(express.json());
+
+// Configuration
+const jobs = new Map();
+const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://hook.eu2.make.com/hkxxfxo0fn7kdkgg4icrei2v9oci4zqo';
+const PORT = process.env.PORT || 3000;
+const TEMP_DIR = './temp';
+const OUTPUT_DIR = './output';
+const TARGET_DURATION = 3600; // Exactly 60 minutes
+
+// Initialize directories
+async function initDirectories() {
+    try {
+        await fs.mkdir(TEMP_DIR, { recursive: true });
+        await fs.mkdir(OUTPUT_DIR, { recursive: true });
+        console.log('✅ Directories initialized');
+    } catch (error) {
+        console.error('❌ Error creating directories:', error);
+    }
+}
+
+// Download file utility
+async function downloadFile(url, filepath) {
+    console.log(`⬇️ Downloading: ${url}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to download ${url}: ${response.statusText}`);
+    }
+    const buffer = await response.buffer();
+    await fs.writeFile(filepath, buffer);
+    console.log(`✅ Downloaded: ${path.basename(filepath)}`);
+    return filepath;
+}
+
+// Get audio duration using FFprobe
+function getAudioDuration(filepath) {
+    return new Promise((resolve, reject) => {
+        exec(`ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${filepath}"`, 
+            (error, stdout, stderr) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(parseFloat(stdout.trim()));
+                }
+            });
+    });
+}
+
+// Execute FFmpeg command
+function executeFFmpeg(command) {
+    return new Promise((resolve, reject) => {
+        console.log('🎥 Executing FFmpeg...');
+        exec(command, { maxBuffer: 1024 * 1024 * 50 }, (error, stdout, stderr) => {
+            if (error) {
+                console.error('❌ FFmpeg error:', error);
+                console.error('❌ FFmpeg stderr:', stderr);
+                reject(error);
+            } else {
+                console.log('✅ FFmpeg completed successfully');
+                resolve(stdout);
+            }
+        });
+    });
+}
+
+// Send success webhook
+async function sendWebhook(jobId, videoUrl, requestData) {
+    try {
+        const payload = {
+            job_id: jobId,
+            status: 'completed',
+            video_url: videoUrl,
+            video_creation_id: requestData.video_creation_id,
+            title: requestData.title,
+            channel_id: requestData.channel_id,
+            completed_at: new Date().toISOString(),
+            duration_seconds: TARGET_DURATION
+        };
+        
+        console.log('📡 Sending success webhook...');
+        const response = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            console.error('❌ Webhook failed:', response.statusText);
+        } else {
+            console.log('✅ Webhook sent successfully');
+        }
+    } catch (error) {
+        console.error('❌ Webhook error:', error);
+    }
+}
+
+// Send failure webhook
+async function sendFailureWebhook(jobId, errorMessage, requestData) {
+    try {
+        const payload = {
+            job_id: jobId,
+            status: 'failed',
+            error: errorMessage,
+            video_creation_id: requestData.video_creation_id,
+            title: requestData.title,
+            channel_id: requestData.channel_id,
+            failed_at: new Date().toISOString()
+        };
+        
+        console.log('📡 Sending failure webhook...');
+        const response = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            console.error('❌ Failure webhook failed:', response.statusText);
+        } else {
+            console.log('✅ Failure webhook sent successfully');
+        }
+    } catch (error) {
+        console.error('❌ Failure webhook error:', error);
+    }
+}
+
+// Main video processing function
+async function processVideo(jobId, requestData) {
+    const jobDir = path.join(TEMP_DIR, jobId);
+    
+    try {
+        await fs.mkdir(jobDir, { recursive: true });
+        console.log(`🎬 Starting job ${jobId}: "${requestData.title}"`);
+        
+        // Update job status
+        jobs.set(jobId, { ...jobs.get(jobId), status: 'downloading' });
+        
+        // Download thumbnail and all songs concurrently
+        const thumbnailPath = path.join(jobDir, 'thumbnail.png');
+        const songPaths = [];
+        
+        console.log('📥 Starting concurrent downloads...');
+        const downloadPromises = [downloadFile(requestData.thumbnail_url, thumbnailPath)];
+        
+        // Download all songs
+        for (let i = 0; i < requestData.songs.length; i++) {
+            const song = requestData.songs[i];
+            const songPath = path.join(jobDir, `song_${i}.mp3`);
+            songPaths.push(songPath);
+            downloadPromises.push(downloadFile(song.file_url, songPath));
+        }
+        
+        await Promise.all(downloadPromises);
+        console.log(`✅ Job ${jobId}: All ${requestData.songs.length + 1} files downloaded`);
+        
+        // Update job status
+        jobs.set(jobId, { ...jobs.get(jobId), status: 'processing_audio' });
+        
+        // Calculate total duration
+        let totalDuration = 0;
+        console.log('🎵 Analyzing song durations...');
+        
+        for (let i = 0; i < songPaths.length; i++) {
+            try {
+                const duration = await getAudioDuration(songPaths[i]);
+                console.log(`Song ${i + 1}: "${requestData.songs[i].title}" - ${duration}s`);
+                totalDuration += duration;
+            } catch (error) {
+                console.error(`⚠️ Failed to get duration for song ${i}:`, error);
+                totalDuration += requestData.songs[i].length;
+                console.log(`Song ${i + 1}: Using fallback duration ${requestData.songs[i].length}s`);
+            }
+        }
+        
+        console.log(`📊 Total single loop duration: ${Math.round(totalDuration)}s (${Math.round(totalDuration/60)}min)`);
+        
+        // Calculate loops and create concatenation file
+        const loopsNeeded = Math.ceil(TARGET_DURATION / totalDuration);
+        console.log(`🔄 Loops needed: ${loopsNeeded}`);
+        
+        const concatFilePath = path.join(jobDir, 'concat.txt');
+        let concatContent = '';
+        let currentDuration = 0;
+        
+        // Add songs in loops until exactly 60 minutes
+        outerLoop: for (let loop = 0; loop < loopsNeeded; loop++) {
+            for (let i = 0; i < songPaths.length; i++) {
+                const songDuration = requestData.songs[i].length;
+                
+                if (currentDuration + songDuration > TARGET_DURATION) {
+                    const remainingTime = TARGET_DURATION - currentDuration;
+                    concatContent += `file '${path.basename(songPaths[i])}'\n`;
+                    console.log(`✂️ Final song will be cut to ${remainingTime}s`);
+                    break outerLoop;
+                }
+                
+                concatContent += `file '${path.basename(songPaths[i])}'\n`;
+                currentDuration += songDuration;
+                
+                if (currentDuration >= TARGET_DURATION) break outerLoop;
+            }
+        }
+        
+        await fs.writeFile(concatFilePath, concatContent);
+        console.log('📄 Concatenation file created');
+        
+        // Concatenate audio files
+        console.log('🎵 Concatenating audio...');
+        const concatenatedAudioPath = path.join(jobDir, 'concatenated_audio.mp3');
+        await executeFFmpeg(
+            `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -c copy "${concatenatedAudioPath}"`
+        );
+        
+        // Trim to exactly 60 minutes
+        console.log('✂️ Trimming to exactly 60 minutes...');
+        const trimmedAudioPath = path.join(jobDir, 'trimmed_audio.mp3');
+        await executeFFmpeg(
+            `ffmpeg -i "${concatenatedAudioPath}" -t ${TARGET_DURATION} -c copy "${trimmedAudioPath}"`
+        );
+        
+        // Update job status
+        jobs.set(jobId, { ...jobs.get(jobId), status: 'creating_video' });
+        
+        // Create final 1080p video
+        console.log('🎬 Creating final video...');
+        const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
+        await executeFFmpeg(
+            `ffmpeg -loop 1 -i "${thumbnailPath}" -i "${trimmedAudioPath}" -c:v libx264 -preset faster -crf 28 -c:a aac -b:a 192k -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -t ${TARGET_DURATION} "${outputVideoPath}"`
+        );
+        
+        console.log(`✅ Job ${jobId}: Video created successfully`);
+        
+        // Generate video URL
+        const videoUrl = `${process.env.REPL_URL || 'https://your-repl-url.replit.dev'}/output/${jobId}.mp4`;
+        
+        // Update job status
+        jobs.set(jobId, { 
+            ...jobs.get(jobId), 
+            status: 'completed',
+            video_url: videoUrl,
+            completed_at: new Date().toISOString()
+        });
+        
+        // Send webhook notification
+        await sendWebhook(jobId, videoUrl, requestData);
+        console.log(`🎉 Job ${jobId}: Completed successfully`);
+        
+    } catch (error) {
+        console.error(`❌ Job ${jobId} failed:`, error);
+        
+        jobs.set(jobId, { 
+            ...jobs.get(jobId), 
+            status: 'failed',
+            error: error.message,
+            failed_at: new Date().toISOString()
+        });
+        
+        await sendFailureWebhook(jobId, error.message, requestData);
+    }
+}
+
+// API Routes
+app.post('/create-video', async (req, res) => {
+    try {
+        const { video_creation_id, title, thumbnail_url, songs, channel_id } = req.body;
+        
+        if (!video_creation_id || !title || !thumbnail_url || !songs || songs.length !== 10 || !channel_id) {
+            return res.status(400).json({ 
+                error: 'Invalid request. Expected video_creation_id, title, thumbnail_url, channel_id, and exactly 10 songs' 
+            });
+        }
+        
+        const jobId = uuidv4();
+        
+        jobs.set(jobId, {
+            job_id: jobId,
+            video_creation_id,
+            title,
+            channel_id,
+            status: 'queued',
+            created_at: new Date().toISOString(),
+            request_data: req.body
+        });
+        
+        // Start processing in background
+        processVideo(jobId, req.body);
+        
+        res.json({
+            job_id: jobId,
+            status: 'queued',
+            message: 'Video processing started'
+        });
+        
+    } catch (error) {
+        console.error('Error creating video job:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Job status endpoint
+app.get('/job/:jobId', (req, res) => {
+    const job = jobs.get(req.params.jobId);
+    
+    if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const publicJob = {
+        job_id: job.job_id,
+        video_creation_id: job.video_creation_id,
+        title: job.title,
+        channel_id: job.channel_id,
+        status: job.status,
+        created_at: job.created_at,
+        completed_at: job.completed_at,
+        failed_at: job.failed_at,
+        video_url: job.video_url,
+        error: job.error
+    };
+    
+    res.json(publicJob);
+});
+
+// Serve output videos
+app.use('/output', express.static(OUTPUT_DIR));
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        environment: 'replit'
+    });
+});
+
+// Daily cleanup (runs at 2 AM)
+cron.schedule('0 2 * * *', async () => {
+    console.log('🧹 Starting daily cleanup...');
+    try {
+        const tempDirs = await fs.readdir(TEMP_DIR);
+        for (const dir of tempDirs) {
+            const dirPath = path.join(TEMP_DIR, dir);
+            const stats = await fs.stat(dirPath);
+            const age = Date.now() - stats.mtime.getTime();
+            
+            if (age > 24 * 60 * 60 * 1000) { // Older than 24 hours
+                await fs.rmdir(dirPath, { recursive: true });
+                console.log(`🗑️ Cleaned up temp directory: ${dir}`);
+            }
+        }
+    } catch (error) {
+        console.error('❌ Cleanup error:', error);
+    }
+});
+
+// Initialize and start server
+async function start() {
+    await initDirectories();
+    
+    app.listen(PORT, () => {
+        console.log(`🚀 Video generator server running on port ${PORT}`);
+        console.log(`📋 Health check: ${process.env.REPL_URL || 'http://localhost:' + PORT}/health`);
+        console.log(`🎬 Create video: POST ${process.env.REPL_URL || 'http://localhost:' + PORT}/create-video`);
+    });
+}
+
+start().catch(console.error);
+🔧 Setup Instructions:
+
+Install FFmpeg: Run in Shell: sudo apt-get update && sudo apt-get install -y ffmpeg
+Set Environment Variables in Replit Secrets:
+
+WEBHOOK_URL: https://hook.eu2.make.com/hkxxfxo0fn7kdkgg4icrei2v9oci4zqo
+REPL_URL: (Auto-set by Replit)
+
+
+Install Dependencies: Run npm install
+Start Application: Run npm start
+
+📡 API Endpoints:
+
+POST /create-video - Submit video creation job
+GET /job/{jobId} - Check job status
+GET /health - Health check
+GET /output/{jobId}.mp4 - Download completed video
+
+🎯 Expected Request Format:
+json{
+  "video_creation_id": "vid_1750978941658_zchyuupjq",
+  "title": "why did you leave me",
+  "channel_id": "channel_123456789",
+  "thumbnail_url": "https://your-domain.com/api/files/thumbnails/thumbnail.png",
+  "songs": [
+    {
+      "id": 6,
+      "artist": "Memoria Futuri",
+      "title": "song name", 
+      "file_url": "https://your-domain.com/api/files/music/filename.mp3",
+      "length": 86
+    }
+    // ... 9 more songs (total of 10 songs)
+  ]
+}
+This creates a complete working video generator that processes requests asynchronously, creates exactly 60-minute 1080p videos, and sends results to your Make.com webhook!
