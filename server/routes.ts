@@ -42,12 +42,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Remove from active jobs when completed
         activeJobs.delete(jobKey);
         
-        res.json({
+        // Send response immediately to prevent proxy timeout
+        const response = {
           job_id: job.id,
           status: completedJob?.status || "completed",
           video_url: completedJob?.video_url,
           message: "Video processing completed successfully"
-        });
+        };
+        
+        console.log(`✅ Job ${job.id} completed, sending response:`, response);
+        
+        // Set response headers to prevent proxy issues
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Connection', 'close');
+        
+        res.json(response);
       } catch (processingError) {
         console.error(`❌ Processing failed for job ${job.id}:`, processingError);
         
