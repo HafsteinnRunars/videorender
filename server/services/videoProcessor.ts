@@ -200,11 +200,11 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       progress: 85
     });
     
-    // Create final video with ultra-fast settings
-    console.log('🎬 Creating final video with ultra-fast encoding...');
+    // Create final 1080p video with speed optimizations
+    console.log('🎬 Creating final 1080p video with speed optimizations...');
     const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
     await executeFFmpeg(
-      `ffmpeg -loop 1 -i "${thumbnailPath}" -i "${trimmedAudioPath}" -c:v libx264 -preset ultrafast -crf 28 -tune stillimage -x264-params keyint=600:min-keyint=600 -r 1 -c:a copy -pix_fmt yuv420p -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} "${outputVideoPath}"`
+      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset veryfast -crf 30 -tune stillimage -x264-params keyint=600:min-keyint=600:no-cabac:no-deblock:partitions=none:me=dia:subme=1:trellis=0 -r 1 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} "${path.basename(outputVideoPath)}"`
     );
     
     console.log(`✅ Job ${jobId}: Video created successfully`);
