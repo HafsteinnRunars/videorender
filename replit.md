@@ -107,6 +107,7 @@ This is a full-stack video generation application built with Node.js, Express, R
 - July 02, 2025. Changed target duration to 60 minutes for production
 - July 02, 2025. Added 30-minute timeout configuration to handle long processing
 - July 02, 2025. Switched to asynchronous processing due to Replit Autoscale 5-minute request timeout limitation
+- July 02, 2025. Reverted to synchronous processing for VM deployment (no timeout limitations)
 
 ## User Preferences
 
