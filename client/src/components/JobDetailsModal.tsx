@@ -139,7 +139,7 @@ export default function JobDetailsModal({ job, isOpen, onClose }: JobDetailsModa
               <div className="space-y-2">
                 {job.songs.map((song: any, index: number) => (
                   <div key={index} className="flex justify-between items-center text-sm">
-                    <span className="text-gray-900 font-medium">{song.title}</span>
+                    <span className="text-gray-900 font-medium">Song {index + 1}</span>
                     <span className="text-gray-500">{Math.floor(song.length / 60)}:{(song.length % 60).toString().padStart(2, '0')}</span>
                   </div>
                 ))}

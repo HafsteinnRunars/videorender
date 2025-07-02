@@ -146,7 +146,7 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     
     for (let i = 0; i < requestData.songs.length; i++) {
       totalDuration += requestData.songs[i].length;
-      console.log(`Song ${i + 1}: "${requestData.songs[i].title}" - ${requestData.songs[i].length}s (from metadata)`);
+      console.log(`Song ${i + 1}: ${requestData.songs[i].length}s (from metadata)`);
     }
     
     console.log(`📊 Total single loop duration: ${Math.round(totalDuration)}s (${Math.round(totalDuration/60)}min)`);

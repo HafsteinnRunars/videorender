@@ -20,7 +20,6 @@ export const videoJobs = pgTable("video_jobs", {
 });
 
 export const songSchema = z.object({
-  title: z.string(),
   file_url: z.string().url(),
   length: z.number().positive(),
 });
@@ -33,6 +32,12 @@ export const insertVideoJobSchema = createInsertSchema(videoJobs).omit({
   failed_at: true,
 }).extend({
   songs: z.array(songSchema).length(10),
+}).pick({
+  video_creation_id: true,
+  title: true,
+  channel_id: true,
+  thumbnail_url: true,
+  songs: true,
 });
 
 export type InsertVideoJob = z.infer<typeof insertVideoJobSchema>;

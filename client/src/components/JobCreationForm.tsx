@@ -21,9 +21,9 @@ export default function JobCreationForm() {
   const form = useForm<InsertVideoJob>({
     resolver: zodResolver(insertVideoJobSchema),
     defaultValues: {
+      video_creation_id: `vid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: "",
       channel_id: "",
-      video_creation_id: "",
       thumbnail_url: "",
       songs: []
     }
@@ -65,10 +65,11 @@ export default function JobCreationForm() {
     }
 
     const jobData: InsertVideoJob = {
-      ...data,
+      video_creation_id: data.video_creation_id,
+      title: data.title,
+      channel_id: data.channel_id,
       thumbnail_url: thumbnailUrl,
-      songs: songs,
-      video_creation_id: `vid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      songs: songs
     };
 
     createJobMutation.mutate(jobData);
@@ -84,11 +85,10 @@ export default function JobCreationForm() {
       return;
     }
 
-    const title = prompt("Enter song title:");
     const fileUrl = prompt("Enter song URL (MP3/WAV):");
     const lengthStr = prompt("Enter song duration in seconds:");
 
-    if (title && fileUrl && lengthStr) {
+    if (fileUrl && lengthStr) {
       const length = parseInt(lengthStr);
       if (isNaN(length) || length <= 0) {
         toast({
@@ -100,7 +100,6 @@ export default function JobCreationForm() {
       }
 
       const newSong: Song = {
-        title,
         file_url: fileUrl,
         length
       };
@@ -124,6 +123,24 @@ export default function JobCreationForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
+                name="video_creation_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-gray-700">Video Creation ID</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Auto-generated"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
                 name="title"
                 render={({ field }) => (
                   <FormItem>
@@ -139,7 +156,9 @@ export default function JobCreationForm() {
                   </FormItem>
                 )}
               />
-              
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
               <FormField
                 control={form.control}
                 name="channel_id"
@@ -187,7 +206,7 @@ export default function JobCreationForm() {
                       <Music className="text-primary-600" size={20} />
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900">{song.title}</p>
+                      <p className="font-medium text-gray-900">Song {index + 1}</p>
                       <p className="text-sm text-gray-500">{Math.floor(song.length / 60)}:{(song.length % 60).toString().padStart(2, '0')} - MP3</p>
                     </div>
                     <Button
