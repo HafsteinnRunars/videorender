@@ -7,10 +7,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Set longer timeout for video processing requests (10 minutes)
+// Set longer timeout for video processing requests (30 minutes)
 app.use('/api/video-jobs', (req, res, next) => {
-  req.setTimeout(600000); // 10 minutes
-  res.setTimeout(600000); // 10 minutes
+  req.setTimeout(1800000); // 30 minutes
+  res.setTimeout(1800000); // 30 minutes
   next();
 });
 
@@ -70,9 +70,9 @@ app.use((req, res, next) => {
   const port = 5000;
   
   // Set server timeout for long-running video processing
-  server.timeout = 600000; // 10 minutes
-  server.headersTimeout = 610000; // Slightly longer than timeout
-  server.requestTimeout = 600000; // 10 minutes
+  server.timeout = 1800000; // 30 minutes
+  server.headersTimeout = 1810000; // Slightly longer than timeout
+  server.requestTimeout = 1800000; // 30 minutes
   
   server.listen({
     port,
