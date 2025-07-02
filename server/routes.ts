@@ -11,7 +11,7 @@ import fs from "fs";
 const activeJobs = new Set<string>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Create video job endpoint (synchronous processing)
+  // Create video job endpoint (asynchronous processing to avoid 5-min timeout)
   app.post("/api/video-jobs", async (req, res) => {
     try {
       const jobData = insertVideoJobSchema.parse(req.body);
@@ -30,53 +30,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const job = await storage.createVideoJob(jobData);
       
-      console.log(`🎬 Starting synchronous processing for job ${job.id}`);
+      console.log(`🎬 Starting asynchronous processing for job ${job.id}`);
       
-      // Process video synchronously - wait for completion
-      try {
-        await processVideo(job.id, jobData, storage);
-        
-        // Get the completed job with video URL
-        const completedJob = await storage.getVideoJob(job.id);
-        
-        // Remove from active jobs when completed
-        activeJobs.delete(jobKey);
-        
-        // Send response immediately to prevent proxy timeout
-        const response = {
-          job_id: job.id,
-          status: completedJob?.status || "completed",
-          video_url: completedJob?.video_url,
-          message: "Video processing completed successfully"
-        };
-        
-        console.log(`✅ Job ${job.id} completed, sending response:`, response);
-        
-        // Set response headers to prevent proxy issues
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Connection', 'close');
-        
-        res.json(response);
-      } catch (processingError) {
-        console.error(`❌ Processing failed for job ${job.id}:`, processingError);
-        
-        // Remove from active jobs when failed
-        activeJobs.delete(jobKey);
-        
-        // Update job status to failed
-        await storage.updateVideoJob(job.id, {
-          status: "failed",
-          error_message: processingError instanceof Error ? processingError.message : "Unknown processing error",
-          failed_at: new Date()
+      // Start processing in background (non-blocking)
+      processVideo(job.id, jobData, storage)
+        .then(async () => {
+          console.log(`✅ Job ${job.id} completed successfully`);
+          activeJobs.delete(jobKey);
+        })
+        .catch(async (processingError) => {
+          console.error(`❌ Processing failed for job ${job.id}:`, processingError);
+          activeJobs.delete(jobKey);
+          
+          // Update job status to failed
+          await storage.updateVideoJob(job.id, {
+            status: "failed",
+            error_message: processingError instanceof Error ? processingError.message : "Unknown processing error",
+            failed_at: new Date()
+          });
         });
-        
-        res.status(500).json({
-          job_id: job.id,
-          status: "failed",
-          error: "Video processing failed",
-          message: processingError instanceof Error ? processingError.message : "Unknown error"
-        });
-      }
+      
+      // Return immediately with job ID for polling
+      res.json({
+        job_id: job.id,
+        status: "queued",
+        message: "Video processing started. Poll /api/video-jobs/{job_id} for status updates.",
+        poll_url: `/api/video-jobs/${job.id}`
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
