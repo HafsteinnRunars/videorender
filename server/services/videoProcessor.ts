@@ -186,18 +186,18 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     // Update progress
     await storage.updateVideoJob(jobId, { progress: 65 });
     
-    // Concatenate audio files
-    console.log('🎵 Concatenating audio...');
+    // Concatenate and compress audio files in one step
+    console.log('🎵 Concatenating and compressing audio...');
     const concatenatedAudioPath = path.join(jobDir, 'concatenated_audio.mp3');
     await executeFFmpeg(
-      `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -c copy "${concatenatedAudioPath}"`
+      `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -c:a aac -b:a 64k -ar 44100 -ac 2 "${concatenatedAudioPath}"`
     );
     
-    // Trim to exactly 60 minutes
+    // Trim to exactly 60 minutes with optimized settings
     console.log('✂️ Trimming to exactly 60 minutes...');
-    const trimmedAudioPath = path.join(jobDir, 'trimmed_audio.mp3');
+    const trimmedAudioPath = path.join(jobDir, 'trimmed_audio.aac');
     await executeFFmpeg(
-      `ffmpeg -i "${concatenatedAudioPath}" -t ${TARGET_DURATION} -c copy "${trimmedAudioPath}"`
+      `ffmpeg -i "${concatenatedAudioPath}" -t ${TARGET_DURATION} -c:a aac -b:a 64k -ar 44100 -ac 2 "${trimmedAudioPath}"`
     );
     
     // Update job status to creating video
@@ -206,11 +206,11 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       progress: 85
     });
     
-    // Create final 1080p video
-    console.log('🎬 Creating final video...');
+    // Create final 1080p video with optimized compression
+    console.log('🎬 Creating final video with optimized compression...');
     const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
     await executeFFmpeg(
-      `ffmpeg -loop 1 -i "${thumbnailPath}" -i "${trimmedAudioPath}" -c:v libx264 -preset faster -crf 28 -c:a aac -b:a 192k -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -t ${TARGET_DURATION} "${outputVideoPath}"`
+      `ffmpeg -loop 1 -i "${thumbnailPath}" -i "${trimmedAudioPath}" -c:v libx264 -preset slow -crf 35 -profile:v baseline -level 3.0 -maxrate 500k -bufsize 1000k -c:a aac -b:a 64k -ar 44100 -ac 2 -pix_fmt yuv420p -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} "${outputVideoPath}"`
     );
     
     console.log(`✅ Job ${jobId}: Video created successfully`);

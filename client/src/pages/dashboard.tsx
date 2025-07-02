@@ -97,12 +97,13 @@ export default function Dashboard() {
                   </div>
 
                   <div className="p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">Output Specifications</h4>
+                    <h4 className="font-medium text-blue-900 mb-2">Output Specifications (Optimized)</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• Resolution: 1920x1080 (1080p)</li>
-                      <li>• Format: MP4 (H.264)</li>
-                      <li>• Audio: AAC 192kbps</li>
+                      <li>• Resolution: 1280x720 (720p HD)</li>
+                      <li>• Format: MP4 (H.264 optimized)</li>
+                      <li>• Audio: AAC 64kbps</li>
                       <li>• Duration: Exactly 60 minutes</li>
+                      <li>• File Size: ~50-100MB</li>
                     </ul>
                   </div>
 
