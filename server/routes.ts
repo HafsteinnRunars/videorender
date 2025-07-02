@@ -7,11 +7,27 @@ import { processVideo } from "./services/videoProcessor";
 import path from "path";
 import fs from "fs";
 
+// Simple in-memory rate limiting
+const activeJobs = new Set<string>();
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create video job endpoint (synchronous processing)
   app.post("/api/video-jobs", async (req, res) => {
     try {
       const jobData = insertVideoJobSchema.parse(req.body);
+      
+      // Check for duplicate/similar requests
+      const jobKey = `${jobData.title}-${jobData.thumbnail_url}`;
+      if (activeJobs.has(jobKey)) {
+        return res.status(429).json({
+          error: "Duplicate request",
+          message: "A similar video is already being processed. Please wait."
+        });
+      }
+      
+      // Mark this job as active
+      activeJobs.add(jobKey);
+      
       const job = await storage.createVideoJob(jobData);
       
       console.log(`🎬 Starting synchronous processing for job ${job.id}`);
@@ -23,6 +39,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get the completed job with video URL
         const completedJob = await storage.getVideoJob(job.id);
         
+        // Remove from active jobs when completed
+        activeJobs.delete(jobKey);
+        
         res.json({
           job_id: job.id,
           status: completedJob?.status || "completed",
@@ -31,6 +50,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (processingError) {
         console.error(`❌ Processing failed for job ${job.id}:`, processingError);
+        
+        // Remove from active jobs when failed
+        activeJobs.delete(jobKey);
         
         // Update job status to failed
         await storage.updateVideoJob(job.id, {
