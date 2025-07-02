@@ -191,7 +191,7 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     console.log('🎵 Creating final audio track (ultra-fast mode)...');
     const trimmedAudioPath = path.join(jobDir, 'final_audio.aac');
     await executeFFmpeg(
-      `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -t ${TARGET_DURATION} -c:a aac -b:a 64k -ar 44100 -ac 2 "${trimmedAudioPath}"`
+      `cd "${jobDir}" && ffmpeg -f concat -safe 0 -i "${path.basename(concatFilePath)}" -t ${TARGET_DURATION} -c:a aac -b:a 64k -ar 44100 -ac 2 "${path.basename(trimmedAudioPath)}"`
     );
     
     // Update job status to creating video
