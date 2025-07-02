@@ -7,6 +7,13 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Set longer timeout for video processing requests (10 minutes)
+app.use('/api/video-jobs', (req, res, next) => {
+  req.setTimeout(600000); // 10 minutes
+  res.setTimeout(600000); // 10 minutes
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -61,6 +68,12 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
+  
+  // Set server timeout for long-running video processing
+  server.timeout = 600000; // 10 minutes
+  server.headersTimeout = 610000; // Slightly longer than timeout
+  server.requestTimeout = 600000; // 10 minutes
+  
   server.listen({
     port,
     host: "0.0.0.0",
