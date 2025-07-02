@@ -8,7 +8,6 @@ import type { InsertVideoJob } from '@shared/schema';
 const TEMP_DIR = './temp';
 const OUTPUT_DIR = './output';
 const TARGET_DURATION = 300; // 5 minutes
-const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://hook.eu2.make.com/hkxxfxo0fn7kdkgg4icrei2v9oci4zqo';
 
 // Initialize directories
 async function initDirectories() {
@@ -27,7 +26,8 @@ async function downloadFile(url: string, filepath: string): Promise<string> {
   if (!response.ok) {
     throw new Error(`Failed to download ${url}: ${response.statusText}`);
   }
-  const buffer = await response.buffer();
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
   await fs.writeFile(filepath, buffer);
   console.log(`✅ Downloaded: ${path.basename(filepath)}`);
   return filepath;
@@ -64,34 +64,7 @@ function executeFFmpeg(command: string): Promise<string> {
   });
 }
 
-// Send webhook notification
-async function sendWebhook(jobId: string, status: string, data: any) {
-  if (!WEBHOOK_URL) return;
-  
-  try {
-    const payload = {
-      job_id: jobId,
-      status,
-      ...data,
-      timestamp: new Date().toISOString()
-    };
-    
-    console.log('📡 Sending webhook...');
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!response.ok) {
-      console.error('❌ Webhook failed:', response.statusText);
-    } else {
-      console.log('✅ Webhook sent successfully');
-    }
-  } catch (error) {
-    console.error('❌ Webhook error:', error);
-  }
-}
+// Webhook functionality removed - using synchronous responses only
 
 export async function processVideo(jobId: string, requestData: InsertVideoJob, storage: IStorage) {
   await initDirectories();
@@ -233,15 +206,6 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       completed_at: new Date()
     });
     
-    // Send webhook notification
-    await sendWebhook(jobId, 'completed', {
-      video_url: videoUrl,
-      video_creation_id: requestData.video_creation_id,
-      title: requestData.title,
-      channel_id: requestData.channel_id,
-      duration_seconds: TARGET_DURATION
-    });
-    
     console.log(`🎉 Job ${jobId}: Completed successfully`);
     
     // Clean up temp files
@@ -261,12 +225,7 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       failed_at: new Date()
     });
     
-    await sendWebhook(jobId, 'failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      video_creation_id: requestData.video_creation_id,
-      title: requestData.title,
-      channel_id: requestData.channel_id
-    });
+    // No webhook - error will be returned in the synchronous response
     
     // Clean up temp files even on failure
     try {
