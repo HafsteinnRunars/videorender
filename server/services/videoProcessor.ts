@@ -22,14 +22,47 @@ async function initDirectories() {
 // Download file utility
 async function downloadFile(url: string, filepath: string): Promise<string> {
   console.log(`⬇️ Downloading: ${url}`);
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; VideoGenerator/1.0)'
+    }
+  });
+  
   if (!response.ok) {
     throw new Error(`Failed to download ${url}: ${response.statusText}`);
   }
+
+  // Check content type for images
+  const contentType = response.headers.get('content-type');
+  if (filepath.includes('thumbnail') && contentType) {
+    if (!contentType.startsWith('image/')) {
+      console.error(`❌ Invalid content type from ${url}: ${contentType}`);
+      throw new Error(`Invalid image format from ${url}: got ${contentType}, expected image/*`);
+    }
+  }
+
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
+  
+  // Validate PNG/JPEG signatures for images
+  if (filepath.includes('thumbnail')) {
+    const signature = buffer.subarray(0, 8);
+    const isPNG = signature[0] === 0x89 && signature[1] === 0x50 && signature[2] === 0x4E && signature[3] === 0x47;
+    const isJPEG = signature[0] === 0xFF && signature[1] === 0xD8;
+    
+    if (!isPNG && !isJPEG) {
+      const hexSignature = Array.from(signature).map(b => b.toString(16).padStart(2, '0')).join('');
+      const textSignature = Array.from(signature).map(b => String.fromCharCode(b)).join('');
+      console.error(`❌ Invalid image signature from ${url}:`);
+      console.error(`   Hex: ${hexSignature}`);
+      console.error(`   Text: ${textSignature}`);
+      console.error(`   First 100 chars: ${buffer.toString().substring(0, 100)}`);
+      throw new Error(`Invalid image file from ${url}: got signature ${hexSignature}, expected PNG (89504E47) or JPEG (FFD8)`);
+    }
+  }
+  
   await fs.writeFile(filepath, buffer);
-  console.log(`✅ Downloaded: ${path.basename(filepath)}`);
+  console.log(`✅ Downloaded: ${path.basename(filepath)} (${buffer.length} bytes)`);
   return filepath;
 }
 
