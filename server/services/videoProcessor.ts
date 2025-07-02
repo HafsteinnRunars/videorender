@@ -228,8 +228,11 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     await fs.rename(tempVideoPath, outputVideoPath);
     console.log(`✅ Job ${jobId}: Video created and moved to output directory`);
     
-    // Generate video URL
-    const videoUrl = `${process.env.REPL_URL || 'http://localhost:5000'}/api/videos/${jobId}.mp4`;
+    // Generate video URL using the correct Replit environment variable
+    const deploymentDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
+    const baseUrl = deploymentDomain ? `https://${deploymentDomain}` : 'http://localhost:5000';
+    const videoUrl = `${baseUrl}/api/videos/${jobId}.mp4`;
+    console.log(`🔗 Generated video URL: ${videoUrl}`);
     
     // Update job status to completed
     await storage.updateVideoJob(jobId, { 
