@@ -202,12 +202,16 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     
     // Create final 1080p video with speed optimizations
     console.log('🎬 Creating final 1080p video with speed optimizations...');
+    const tempVideoPath = path.join(jobDir, `${jobId}.mp4`);
     const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
+    
     await executeFFmpeg(
-      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset veryfast -crf 30 -tune stillimage -x264-params keyint=600:min-keyint=600:no-cabac:no-deblock:partitions=none:me=dia:subme=1:trellis=0 -r 1 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} "${path.basename(outputVideoPath)}"`
+      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset veryfast -crf 30 -tune stillimage -x264-params keyint=600:min-keyint=600:no-cabac:no-deblock:partitions=none:me=dia:subme=1:trellis=0 -r 1 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} "${jobId}.mp4"`
     );
     
-    console.log(`✅ Job ${jobId}: Video created successfully`);
+    // Move video to output directory
+    await fs.rename(tempVideoPath, outputVideoPath);
+    console.log(`✅ Job ${jobId}: Video created and moved to output directory`);
     
     // Generate video URL
     const videoUrl = `${process.env.REPL_URL || 'http://localhost:5000'}/api/videos/${jobId}.mp4`;
