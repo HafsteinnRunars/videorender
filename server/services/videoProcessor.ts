@@ -140,16 +140,19 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       progress: 25
     });
     
-    // Skip audio analysis - use provided song lengths (much faster!)
-    console.log('🎵 Using provided song durations (ultra-fast mode)...');
+    // Get actual audio durations for accurate looping
+    console.log('🎵 Analyzing actual audio durations for proper looping...');
     let totalDuration = 0;
+    const actualDurations: number[] = [];
     
-    for (let i = 0; i < requestData.songs.length; i++) {
-      totalDuration += requestData.songs[i].length;
-      console.log(`Song ${i + 1}: ${requestData.songs[i].length}s (from metadata)`);
+    for (let i = 0; i < songPaths.length; i++) {
+      const duration = await getAudioDuration(songPaths[i]);
+      actualDurations.push(duration);
+      totalDuration += duration;
+      console.log(`Song ${i + 1}: ${Math.round(duration * 10) / 10}s (actual duration)`);
     }
     
-    console.log(`📊 Total single loop duration: ${Math.round(totalDuration)}s (${Math.round(totalDuration/60)}min)`);
+    console.log(`📊 Total single loop duration: ${Math.round(totalDuration * 10) / 10}s (${Math.round(totalDuration/60 * 10) / 10}min)`);
     
     // Update progress
     await storage.updateVideoJob(jobId, { progress: 45 });
@@ -162,24 +165,30 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     let concatContent = '';
     let currentDuration = 0;
     
-    // Add songs in loops until exactly 60 minutes
+    // Add songs in loops until target duration is reached
+    console.log(`🔄 Creating audio sequence for ${TARGET_DURATION}s duration...`);
     outerLoop: for (let loop = 0; loop < loopsNeeded; loop++) {
+      console.log(`  Loop ${loop + 1}/${loopsNeeded}:`);
       for (let i = 0; i < songPaths.length; i++) {
-        const songDuration = requestData.songs[i].length;
+        const songDuration = actualDurations[i];
         
         if (currentDuration + songDuration > TARGET_DURATION) {
           const remainingTime = TARGET_DURATION - currentDuration;
           concatContent += `file '${path.basename(songPaths[i])}'\n`;
-          console.log(`✂️ Final song will be cut to ${remainingTime}s`);
+          console.log(`    Song ${i + 1}: ${Math.round(songDuration * 10) / 10}s ✂️ (cut to ${Math.round(remainingTime * 10) / 10}s)`);
           break outerLoop;
         }
         
         concatContent += `file '${path.basename(songPaths[i])}'\n`;
         currentDuration += songDuration;
+        console.log(`    Song ${i + 1}: ${Math.round(songDuration * 10) / 10}s (total: ${Math.round(currentDuration * 10) / 10}s)`);
         
         if (currentDuration >= TARGET_DURATION) break outerLoop;
       }
     }
+    
+    console.log(`📋 Total entries in playlist: ${concatContent.split('\n').filter(line => line.trim()).length}`);
+    console.log(`⏱️ Expected audio duration: ${Math.round(currentDuration * 10) / 10}s`)
     
     await fs.writeFile(concatFilePath, concatContent);
     console.log('📄 Concatenation file created');
