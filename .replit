@@ -7,7 +7,7 @@ channel = "stable-24_05"
 packages = ["ffmpeg-full"]
 
 [deployment]
-deploymentTarget = "gce"
+deploymentTarget = "cloudrun"
 build = ["npm", "run", "build"]
 run = ["npm", "run", "start"]
 
