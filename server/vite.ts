@@ -2,7 +2,6 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
 // Importing Vite dynamically avoids bundling it into the production build and
@@ -38,7 +37,8 @@ export async function setupVite(app: Express, server: Server) {
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
+    root: path.resolve(import.meta.dirname, "..", "client"),
+    plugins: [],
     configFile: false,
     customLogger: {
       ...localLogger,
