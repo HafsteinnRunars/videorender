@@ -45,38 +45,56 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    console.log('🚀 Starting VideoMaestro server...');
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      
+      console.error('Request error:', err);
+      res.status(status).json({ message });
+      // Don't re-throw - just log the error
+    });
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      console.log('🔧 Setting up Vite for development...');
+      await setupVite(app, server);
+    } else {
+      console.log('📁 Setting up static file serving for production...');
+      serveStatic(app);
+    }
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Serve on the port provided by the environment (Fly.io passes this via PORT)
+    const port = parseInt(process.env.PORT ?? "3000", 10);
+    console.log(`🌐 Starting server on port ${port}...`);
+    
+    // Set server timeout for long-running video processing
+    server.timeout = 1800000; // 30 minutes
+    server.headersTimeout = 1810000; // Slightly longer than timeout
+    server.requestTimeout = 1800000; // 30 minutes
+    
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      console.log(`✅ VideoMaestro server running on http://0.0.0.0:${port}`);
+      console.log(`📊 Health check: http://0.0.0.0:${port}/api/stats`);
+      log(`serving on port ${port}`);
+    });
+    
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('❌ Server error:', error);
+    });
+    
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
   }
-
-  // Serve on the port provided by the environment (Fly.io passes this via PORT)
-  const port = parseInt(process.env.PORT ?? "5000", 10);
-  
-  // Set server timeout for long-running video processing
-  server.timeout = 1800000; // 30 minutes
-  server.headersTimeout = 1810000; // Slightly longer than timeout
-  server.requestTimeout = 1800000; // 30 minutes
-  
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
