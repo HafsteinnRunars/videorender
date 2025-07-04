@@ -64,10 +64,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Serve on the port provided by the environment (Fly.io passes this via PORT)
+  const port = parseInt(process.env.PORT ?? "5000", 10);
   
   // Set server timeout for long-running video processing
   server.timeout = 1800000; // 30 minutes
