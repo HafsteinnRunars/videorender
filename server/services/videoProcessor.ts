@@ -228,9 +228,10 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     await fs.rename(tempVideoPath, outputVideoPath);
     console.log(`✅ Job ${jobId}: Video created and moved to output directory`);
     
-    // Generate video URL using the correct Replit environment variable
-    const deploymentDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
-    const baseUrl = deploymentDomain ? `https://${deploymentDomain}` : 'http://localhost:5000';
+    // Generate video URL using the correct Fly.io environment variables
+    // Use Fly.io domain or fallback to localhost for development
+    const flyDomain = process.env.FLY_APP_NAME ? `${process.env.FLY_APP_NAME}.fly.dev` : null;
+    const baseUrl = flyDomain ? `https://${flyDomain}` : 'http://localhost:3000';
     const videoUrl = `${baseUrl}/api/videos/${jobId}.mp4`;
     console.log(`🔗 Generated video URL: ${videoUrl}`);
     

@@ -21,3 +21,8 @@ primary_region = "lhr"
   cpu_kind = "shared"
   cpus = 8
   memory_mb = 8192
+
+[[mounts]]
+  source = "video_storage"
+  destination = "/app/output"
+  processes = ["app"]
