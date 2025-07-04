@@ -84,7 +84,8 @@ function getAudioDuration(filepath: string): Promise<number> {
 function executeFFmpeg(command: string): Promise<string> {
   return new Promise((resolve, reject) => {
     console.log('🎥 Executing FFmpeg...');
-    exec(command, { maxBuffer: 1024 * 1024 * 50 }, (error, stdout, stderr) => {
+    // MAXIMUM SPEED: Use larger buffer for 8GB RAM system
+    exec(command, { maxBuffer: 1024 * 1024 * 200 }, (error, stdout, stderr) => {
       if (error) {
         console.error('❌ FFmpeg error:', error);
         console.error('❌ FFmpeg stderr:', stderr);
@@ -128,8 +129,8 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     // Download thumbnail first (smaller, faster)
     await downloadFile(requestData.thumbnail_url, thumbnailPath);
     
-    // Download songs in batches of 6 to avoid overwhelming the server
-    const batchSize = 6;
+    // Download songs in batches of 10 to avoid overwhelming the server
+    const batchSize = 10; // Download all 10 songs at once - maximum parallelization
     for (let i = 0; i < requestData.songs.length; i += batchSize) {
       const batch = requestData.songs.slice(i, i + batchSize);
       const batchPromises = batch.map((song, batchIndex) => {
@@ -156,11 +157,18 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     let totalDuration = 0;
     const actualDurations: number[] = [];
     
-    for (let i = 0; i < songPaths.length; i++) {
-      const duration = await getAudioDuration(songPaths[i]);
-      actualDurations.push(duration);
-      totalDuration += duration;
-      console.log(`Song ${i + 1}: ${Math.round(duration * 10) / 10}s (actual duration)`);
+    // MAXIMUM SPEED: Analyze all audio durations in parallel using all CPU cores
+    const durationPromises = songPaths.map((songPath, i) => 
+      getAudioDuration(songPath).then(duration => ({ index: i, duration }))
+    );
+    
+    const durationResults = await Promise.all(durationPromises);
+    durationResults.sort((a, b) => a.index - b.index);
+    
+    for (const result of durationResults) {
+      actualDurations.push(result.duration);
+      totalDuration += result.duration;
+      console.log(`Song ${result.index + 1}: ${Math.round(result.duration * 10) / 10}s (actual duration)`);
     }
     
     console.log(`📊 Total single loop duration: ${Math.round(totalDuration * 10) / 10}s (${Math.round(totalDuration/60 * 10) / 10}min)`);
@@ -208,10 +216,10 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     await storage.updateVideoJob(jobId, { progress: 65 });
     
     // Skip individual concatenation - do everything in one ultra-fast step
-    console.log('🎵 Creating final audio track (ultra-fast mode)...');
+    console.log('🎵 Creating final audio track (MAXIMUM SPEED mode)...');
     const trimmedAudioPath = path.join(jobDir, 'final_audio.aac');
     await executeFFmpeg(
-      `cd "${jobDir}" && ffmpeg -f concat -safe 0 -i "${path.basename(concatFilePath)}" -t ${TARGET_DURATION} -c:a aac -b:a 64k -ar 44100 -ac 2 -threads 8 "${path.basename(trimmedAudioPath)}"`
+      `cd "${jobDir}" && ffmpeg -f concat -safe 0 -i "${path.basename(concatFilePath)}" -t ${TARGET_DURATION} -c:a aac -b:a 128k -ar 48000 -ac 2 -threads 8 -thread_queue_size 2048 -max_muxing_queue_size 4096 "${path.basename(trimmedAudioPath)}"`
     );
     
     // Update job status to creating video
@@ -221,12 +229,12 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     });
     
     // Create final 1080p video with speed optimizations
-    console.log('🎬 Creating final 1080p video with speed optimizations...');
+    console.log('🎬 Creating final 1080p video with MAXIMUM SPEED optimizations...');
     const tempVideoPath = path.join(jobDir, `${jobId}.mp4`);
     const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
     
     await executeFFmpeg(
-      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset veryfast -crf 28 -tune stillimage -x264-params keyint=600:min-keyint=600:ref=1:bframes=0:me=dia:subme=1:me_range=8:trellis=0:no-mbtree:no-weightb:no-mixed-refs:aq-mode=1 -r 1 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} -threads 8 -thread_type slice -thread_queue_size 1024 "${jobId}.mp4"`
+      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset ultrafast -crf 23 -tune stillimage -x264-params keyint=300:min-keyint=300:ref=1:bframes=0:me=dia:subme=0:me_range=4:trellis=0:no-mbtree:no-weightb:no-mixed-refs:aq-mode=0:no-cabac:no-deblock -r 2 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} -threads 8 -thread_type slice -thread_queue_size 4096 -max_muxing_queue_size 8192 -bufsize 16M -maxrate 10M "${jobId}.mp4"`
     );
     
     // Move video to output directory
