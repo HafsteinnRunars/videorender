@@ -103,6 +103,11 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
   await initDirectories();
   const jobDir = path.join(TEMP_DIR, jobId);
   
+  // Keep-alive mechanism to prevent machine from stopping during processing
+  const keepAliveInterval = setInterval(() => {
+    console.log(`⏰ Keep-alive ping for job ${jobId} - processing in progress...`);
+  }, 5 * 60 * 1000); // Every 5 minutes
+  
   try {
     await fs.mkdir(jobDir, { recursive: true });
     console.log(`🎬 Starting job ${jobId}: "${requestData.title}"`);
@@ -245,6 +250,9 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     
     console.log(`🎉 Job ${jobId}: Completed successfully`);
     
+    // Clear keep-alive interval
+    clearInterval(keepAliveInterval);
+    
     // Send webhook notification with complete job details
     try {
       const completedJob = await storage.getVideoJob(jobId);
@@ -299,6 +307,9 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     
   } catch (error) {
     console.error(`❌ Job ${jobId} failed:`, error);
+    
+    // Clear keep-alive interval
+    clearInterval(keepAliveInterval);
     
     await storage.updateVideoJob(jobId, { 
       status: 'failed',
