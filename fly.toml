@@ -8,6 +8,17 @@ name = "videorender-skivdg"
 primary_region = "lhr"
 
 [build]
+dockerfile = "Dockerfile"
+
+[env]
+NODE_ENV = "production"
+PORT = "3000"
+SESSION_SECRET = "your-super-secret-32-character-session-key-here-change-this"
+MAX_CONCURRENT_JOBS = "3"
+VIDEO_DURATION_SECONDS = "600"
+CLEANUP_TEMP_FILES = "true"
+TEMP_DIR = "/app/temp"
+OUTPUT_DIR = "/app/output"
 
 [http_service]
   internal_port = 3000
