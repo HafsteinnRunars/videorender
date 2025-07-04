@@ -6,13 +6,30 @@ import { z } from "zod";
 import { processVideo } from "./services/videoProcessor";
 import path from "path";
 import fs from "fs";
+import { 
+  rateLimiter, 
+  corsHandler, 
+  securityHeaders, 
+  validateRequest, 
+  sanitizeInput, 
+  errorHandler, 
+  healthCheck 
+} from "./middleware/security";
 
 // Simple in-memory rate limiting
 const activeJobs = new Set<string>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Apply security middleware
+  app.use(corsHandler);
+  app.use(securityHeaders);
+  app.use(sanitizeInput);
+  
+  // Health check endpoint (before rate limiting)
+  app.get("/health", healthCheck);
+  app.get("/api/health", healthCheck);
   // Create video job endpoint (synchronous processing with speed optimizations)
-  app.post("/api/video-jobs", async (req, res) => {
+  app.post("/api/video-jobs", rateLimiter, validateRequest(insertVideoJobSchema), async (req, res) => {
     try {
       const jobData = insertVideoJobSchema.parse(req.body);
       
@@ -182,6 +199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Apply error handling middleware last
+  app.use(errorHandler);
+  
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1,189 +1,298 @@
-# Video Generator API
+# VideoMaestro - AI Video Generator
 
-A Node.js video generator application that creates 30-minute 1080p MP4 videos from thumbnails and 10-song playlists using FFmpeg.
+A high-performance Node.js application that generates 30-minute 1080p MP4 videos from thumbnails and 10-song playlists using FFmpeg optimization.
 
-## Features
+## 🚀 Features
 
-- **Synchronous Processing**: Direct video URL response without polling
-- **30-minute Videos**: Loops 10 songs seamlessly for exactly 30 minutes
-- **High Performance**: Ultra-fast FFmpeg encoding optimizations
-- **Modern Stack**: React frontend with Express backend
-- **Real-time Dashboard**: Monitor jobs and processing status
+- **Ultra-Fast Processing**: Optimized FFmpeg settings for 30-minute video generation
+- **Full-Stack TypeScript**: React frontend with Express.js backend
+- **Synchronous Processing**: Direct video URL response without polling complexity
+- **Production Ready**: Configured for DigitalOcean deployment with PM2 and Nginx
+- **Modern UI**: React 18 + Tailwind CSS with shadcn/ui components
+- **Real-time Monitoring**: Dashboard with job status and statistics
 
-## Quick Start
+## 📋 Technical Stack
 
-### Local Development
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend**: Express.js, TypeScript, Drizzle ORM
+- **Processing**: FFmpeg with ultra-fast encoding optimizations
+- **State Management**: TanStack Query, React Hook Form
+- **Routing**: Wouter (lightweight client-side routing)
+- **Process Management**: PM2 with ecosystem configuration
+- **Web Server**: Nginx reverse proxy
 
-```bash
-# Clone repository
-git clone https://github.com/YOUR_USERNAME/video-generator.git
-cd video-generator
+## 🏗️ Architecture
 
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
+```
+VideoMaestro/
+├── client/          # React frontend application
+├── server/          # Express.js backend API
+├── shared/          # Shared TypeScript schemas
+├── temp/           # Temporary processing files
+├── output/         # Generated video files
+└── logs/           # Application logs
 ```
 
-### DigitalOcean Deployment
+## 🛠️ Installation
 
-1. **Create Droplet**
-   - Ubuntu 22.04 LTS
-   - 2GB RAM minimum (4GB recommended)
-   - Enable monitoring
+### Prerequisites
 
-2. **Run Setup Script**
+- Node.js 18+ and npm
+- FFmpeg (required for video processing)
+- Ubuntu 22.04+ (for production deployment)
+
+### Development Setup
+
+1. **Clone the repository**
    ```bash
-   # Upload and run setup script
-   scp digitalocean-setup.sh root@YOUR_SERVER_IP:~/
-   ssh root@YOUR_SERVER_IP
-   chmod +x digitalocean-setup.sh
-   ./digitalocean-setup.sh
+   git clone https://github.com/yourusername/videomaestro.git
+   cd videomaestro
    ```
 
-3. **Deploy Application**
+2. **Install dependencies**
    ```bash
-   # Clone repository
-   cd /var/www/video-generator
-   git clone https://github.com/YOUR_USERNAME/video-generator.git .
-   
-   # Install dependencies
    npm install
-   
-   # Create logs directory
-   mkdir logs
-   
-   # Start with PM2
-   pm2 start ecosystem.config.js --env production
-   pm2 save
-   pm2 startup
    ```
 
-4. **Configure Nginx**
+3. **Set up environment variables**
    ```bash
-   # Copy nginx config
-   cp nginx.conf /etc/nginx/sites-available/video-generator
-   ln -s /etc/nginx/sites-available/video-generator /etc/nginx/sites-enabled/
-   rm /etc/nginx/sites-enabled/default
-   
-   # Update domain in config
-   nano /etc/nginx/sites-available/video-generator
-   
-   # Test and restart
-   nginx -t
-   systemctl restart nginx
+   cp .env.example .env
+   # Edit .env with your configuration
    ```
 
-5. **SSL Certificate**
+4. **Start development server**
    ```bash
-   apt install certbot python3-certbot-nginx
-   certbot --nginx -d yourdomain.com
+   npm run dev
    ```
 
-## API Usage
+5. **Access the application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:5000
 
-### Create Video
+## 🚀 Production Deployment
 
-```bash
+### Automated DigitalOcean Setup
+
+1. **Create a DigitalOcean Droplet**
+   - Ubuntu 22.04 LTS
+   - Minimum 4GB RAM (8GB recommended)
+   - 80GB SSD storage
+
+2. **Run setup script**
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/yourusername/videomaestro/main/digitalocean-setup.sh | sudo bash
+   ```
+
+3. **Clone and deploy**
+   ```bash
+   cd /var/www/video-generator
+   git clone https://github.com/yourusername/videomaestro.git .
+   chmod +x deploy.sh
+   ./deploy.sh
+   ```
+
+4. **Configure domain**
+   ```bash
+   # Edit nginx configuration
+   sudo nano /etc/nginx/sites-available/video-generator
+   # Replace YOUR_DOMAIN.com with your actual domain
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+5. **Set up SSL (optional)**
+   ```bash
+   sudo certbot --nginx -d yourdomain.com
+   ```
+
+### Manual Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed manual deployment instructions.
+
+## 📖 API Documentation
+
+### Create Video Job
+
+```http
 POST /api/video-jobs
 Content-Type: application/json
 
 {
-  "title": "My Video",
+  "video_creation_id": "unique-id",
+  "title": "My Awesome Video",
+  "channel_id": "channel-123",
   "thumbnail_url": "https://example.com/thumbnail.jpg",
   "songs": [
-    {"title": "Song 1", "url": "https://example.com/song1.mp3"},
-    {"title": "Song 2", "url": "https://example.com/song2.mp3"},
-    // ... 10 songs total
+    {
+      "file_url": "https://example.com/song1.mp3",
+      "length": 180
+    },
+    // ... 9 more songs (exactly 10 required)
   ]
 }
 ```
 
-### Response
+### Get Job Status
 
-```json
-{
-  "job_id": "uuid",
-  "status": "completed",
-  "video_url": "https://yourdomain.com/output/video.mp4",
-  "message": "Video processing completed successfully"
-}
+```http
+GET /api/video-jobs/{job_id}
 ```
 
-## System Requirements
+### Get All Jobs
 
-### Development
-- Node.js 18+
-- FFmpeg installed
-- 4GB RAM minimum
-
-### Production
-- Ubuntu 22.04 LTS
-- 2+ CPU cores
-- 4GB+ RAM
-- 20GB+ storage
-- FFmpeg 4.4+
-
-## Environment Variables
-
-```bash
-NODE_ENV=production
-PORT=3000
-# Add database URL if using PostgreSQL
+```http
+GET /api/video-jobs
 ```
 
-## Monitoring
+### Get Statistics
+
+```http
+GET /api/stats
+```
+
+## 🎛️ Configuration
+
+### Video Processing Settings
+
+- **Duration**: 30 minutes (1800 seconds)
+- **Resolution**: 1920x1080 (1080p)
+- **Frame Rate**: 0.5fps (optimized for thumbnails)
+- **Audio**: 48kbps AAC, mono, 22050Hz
+- **Video**: H.264, ultrafast preset, CRF 35
+
+### Performance Optimizations
+
+- **FFmpeg**: Ultra-fast encoding with minimal quality loss
+- **Concurrency**: Batched downloads (3 files at a time)
+- **Memory**: 2GB max restart limit
+- **Cleanup**: Automatic temp file removal
+
+## 📊 Monitoring
+
+### PM2 Commands
 
 ```bash
-# PM2 status
+# Check status
 pm2 status
+
+# View logs
 pm2 logs video-generator
 
-# System resources
-htop
-df -h
+# Restart application
+pm2 restart video-generator
 
-# Nginx logs
-tail -f /var/log/nginx/access.log
-tail -f /var/log/nginx/error.log
+# Monitor resources
+pm2 monit
 ```
 
-## Performance Optimization
+### Health Check
 
-- **Ultra-fast FFmpeg preset** for speed
-- **CRF 35** for balanced quality/speed
-- **Mono audio** to reduce processing time
-- **0.5fps thumbnail** for efficiency
+```bash
+# API health check
+curl http://localhost:3000/api/stats
 
-## Cost Estimation
+# Nginx health check
+curl http://localhost/health
+```
 
-### DigitalOcean Droplet (2GB RAM)
-- **Monthly**: $12/month
-- **Processing**: ~1-2 minutes per 30-minute video
-- **Concurrent**: 1-2 videos simultaneously
+## 🔧 Development
 
-## Troubleshooting
+### Project Structure
+
+```
+client/
+├── src/
+│   ├── components/     # React components
+│   ├── hooks/         # Custom React hooks
+│   ├── pages/         # Page components
+│   └── lib/           # Utility functions
+
+server/
+├── services/          # Business logic
+├── routes.ts          # API routes
+├── storage.ts         # Data storage
+└── index.ts          # Application entry point
+
+shared/
+└── schema.ts         # TypeScript schemas
+```
+
+### Key Files
+
+- `server/services/videoProcessor.ts` - Core FFmpeg processing logic
+- `server/routes.ts` - API endpoints and request handling
+- `shared/schema.ts` - TypeScript schemas and validation
+- `ecosystem.config.js` - PM2 process configuration
+- `nginx.conf` - Production web server configuration
+
+## 🚨 Troubleshooting
 
 ### Common Issues
 
 1. **FFmpeg not found**
    ```bash
-   sudo apt install ffmpeg
+   sudo apt update && sudo apt install ffmpeg
    ```
 
-2. **Permission errors**
+2. **Permission denied**
    ```bash
-   chown -R www-data:www-data /var/www/video-generator
+   sudo chown -R www-data:www-data /var/www/video-generator
    ```
 
 3. **Out of memory**
-   - Increase droplet RAM
-   - Monitor with `htop`
+   ```bash
+   # Increase PM2 memory limit
+   pm2 restart video-generator --max-memory-restart 4G
+   ```
 
-4. **Nginx 413 error**
-   - Increase `client_max_body_size` in nginx.conf
+4. **Nginx 502 error**
+   ```bash
+   # Check PM2 status
+   pm2 status
+   # Check nginx error logs
+   sudo tail -f /var/log/nginx/error.log
+   ```
 
-## License
+## 🔐 Security
 
-MIT License - see LICENSE file for details.
+- Environment variables for sensitive data
+- Rate limiting for API endpoints
+- Input validation and sanitization
+- CORS configuration
+- SSL/TLS encryption (production)
+
+## 📈 Performance
+
+- **Processing Time**: ~5-10 minutes per 30-minute video
+- **Concurrent Jobs**: 3 maximum (configurable)
+- **Memory Usage**: ~1-2GB per job
+- **Storage**: ~50-100MB per generated video
+
+## 🛣️ Roadmap
+
+- [ ] Database persistence (PostgreSQL)
+- [ ] Redis job queue for scaling
+- [ ] AWS S3 integration for video storage
+- [ ] Docker containerization
+- [ ] Advanced video effects and transitions
+- [ ] User authentication and management
+- [ ] Video templates and themes
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📞 Support
+
+For support, please create an issue in the GitHub repository or contact the maintainers.
+
+---
+
+**Built with ❤️ for creators who need fast, reliable video generation.**

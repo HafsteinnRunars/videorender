@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # Development application with hot reloading
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MAX_CONCURRENT_JOBS=1
+      - VIDEO_DURATION_SECONDS=1800
+      - CLEANUP_TEMP_FILES=true
+      - VITE_API_URL=http://localhost:5000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./temp:/app/temp
+      - ./output:/app/output
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+    networks:
+      - videomaestro-dev-network
+    stdin_open: true
+    tty: true
+
+  # Redis for development
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    networks:
+      - videomaestro-dev-network
+
+  # PostgreSQL for development
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=videomaestro_dev
+      - POSTGRES_USER=videoapp
+      - POSTGRES_PASSWORD=devpassword
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - videomaestro-dev-network
+
+  # Mailcatcher for email testing
+  mailcatcher:
+    image: schickling/mailcatcher
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "1080:1080"
+    networks:
+      - videomaestro-dev-network
+
+volumes:
+  redis_dev_data:
+  postgres_dev_data:
+
+networks:
+  videomaestro-dev-network:
+    driver: bridge 

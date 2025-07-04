@@ -14,29 +14,21 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
-*.tsbuildinfo
+.next/
+.vite/
 
-# Temporary files
+# Runtime directories
 temp/
-*.tmp
-*.temp
-
-# Output files (generated videos)
 output/
-uploads/
-
-# Logs
 logs/
 *.log
 
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# OS generated files
+# OS files
 .DS_Store
 .DS_Store?
 ._*
@@ -45,40 +37,50 @@ logs/
 ehthumbs.db
 Thumbs.db
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
+# PM2 files
+.pm2/
+ecosystem.config.js.bak
 
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
+# Cache
+.cache/
+.parcel-cache/
 .eslintcache
 
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
+# Testing
+coverage/
+.nyc_output/
+test-results/
 
-# Optional REPL history
-.node_repl_history
+# Temporary files
+*.tmp
+*.temp
+.tmp/
 
-# Yarn Integrity file
-.yarn-integrity
+# SSL certificates
+*.pem
+*.key
+*.crt
 
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
+# Video files (optional - comment out if you want to track sample videos)
+*.mp4
+*.avi
+*.mov
+*.webm
 
-# Replit specific
+# Audio files (optional - comment out if you want to track sample audio)
+*.mp3
+*.wav
+*.flac
+*.aac
+
+# Replit specific (remove when migrating)
 .replit
 replit.nix
+.upm/
