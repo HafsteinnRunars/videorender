@@ -9,7 +9,9 @@ kill_signal = "SIGINT"
 kill_timeout = "35m"
 
 [build]
-dockerfile = "Dockerfile"
+
+[deploy]
+  release_command = "npm run build"
 
 [env]
 NODE_ENV = "production"
@@ -42,4 +44,4 @@ OUTPUT_DIR = "/app/output"
   soft_limit = 20
 
 [processes]
-  app = "node dist/index.js"
+  app = "npm start"
