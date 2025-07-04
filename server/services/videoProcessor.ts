@@ -245,6 +245,50 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     
     console.log(`🎉 Job ${jobId}: Completed successfully`);
     
+    // Send webhook notification with complete job details
+    try {
+      const completedJob = await storage.getVideoJob(jobId);
+      if (completedJob) {
+        const webhookPayload = {
+          job_id: completedJob.id,
+          video_creation_id: completedJob.video_creation_id,
+          title: completedJob.title,
+          channel_id: completedJob.channel_id,
+          thumbnail_url: completedJob.thumbnail_url,
+          songs: completedJob.songs,
+          status: completedJob.status,
+          progress: completedJob.progress,
+          video_url: completedJob.video_url,
+          created_at: completedJob.created_at,
+          started_at: completedJob.started_at,
+          completed_at: completedJob.completed_at,
+          processing_time_seconds: completedJob.started_at && completedJob.completed_at 
+            ? Math.round((completedJob.completed_at.getTime() - completedJob.started_at.getTime()) / 1000)
+            : null
+        };
+        
+        console.log(`📤 Sending webhook for job ${jobId}:`, webhookPayload);
+        
+        const webhookResponse = await fetch('https://hook.eu2.make.com/hkxxfxo0fn7kdkgg4icrei2v9oci4zqo', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'VideoMaestro/1.0'
+          },
+          body: JSON.stringify(webhookPayload)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log(`✅ Webhook sent successfully for job ${jobId}`);
+        } else {
+          console.error(`❌ Webhook failed for job ${jobId}: ${webhookResponse.status} ${webhookResponse.statusText}`);
+        }
+      }
+    } catch (webhookError) {
+      console.error(`❌ Webhook error for job ${jobId}:`, webhookError);
+      // Don't fail the job if webhook fails
+    }
+    
     // Clean up temp files
     try {
       await fs.rm(jobDir, { recursive: true });
@@ -262,7 +306,48 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
       failed_at: new Date()
     });
     
-    // No webhook - error will be returned in the synchronous response
+    // Send webhook notification for failed job
+    try {
+      const failedJob = await storage.getVideoJob(jobId);
+      if (failedJob) {
+        const webhookPayload = {
+          job_id: failedJob.id,
+          video_creation_id: failedJob.video_creation_id,
+          title: failedJob.title,
+          channel_id: failedJob.channel_id,
+          thumbnail_url: failedJob.thumbnail_url,
+          songs: failedJob.songs,
+          status: failedJob.status,
+          progress: failedJob.progress,
+          error_message: failedJob.error_message,
+          created_at: failedJob.created_at,
+          started_at: failedJob.started_at,
+          failed_at: failedJob.failed_at,
+          processing_time_seconds: failedJob.started_at && failedJob.failed_at 
+            ? Math.round((failedJob.failed_at.getTime() - failedJob.started_at.getTime()) / 1000)
+            : null
+        };
+        
+        console.log(`📤 Sending webhook for failed job ${jobId}:`, webhookPayload);
+        
+        const webhookResponse = await fetch('https://hook.eu2.make.com/hkxxfxo0fn7kdkgg4icrei2v9oci4zqo', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'VideoMaestro/1.0'
+          },
+          body: JSON.stringify(webhookPayload)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log(`✅ Webhook sent successfully for failed job ${jobId}`);
+        } else {
+          console.error(`❌ Webhook failed for failed job ${jobId}: ${webhookResponse.status} ${webhookResponse.statusText}`);
+        }
+      }
+    } catch (webhookError) {
+      console.error(`❌ Webhook error for failed job ${jobId}:`, webhookError);
+    }
     
     // Clean up temp files even on failure
     try {
