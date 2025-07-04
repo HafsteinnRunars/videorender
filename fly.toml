@@ -3,9 +3,10 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-[app]
-name = "videorender-skivdg"
+app = "videorender-skivdg"
 primary_region = "lhr"
+kill_signal = "SIGINT"
+kill_timeout = "35m"
 
 [build]
 dockerfile = "Dockerfile"
@@ -42,6 +43,3 @@ OUTPUT_DIR = "/app/output"
 
 [processes]
   app = "node dist/index.js"
-  
-[processes.app]
-  kill_timeout = "35m"
