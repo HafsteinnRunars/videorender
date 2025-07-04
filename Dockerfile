@@ -54,7 +54,6 @@ RUN npm ci --only=production --ignore-scripts && \
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/client/dist ./client/dist
 COPY --chown=videoapp:nodejs --from=builder /app/server ./server
 COPY --chown=videoapp:nodejs --from=builder /app/shared ./shared
 
