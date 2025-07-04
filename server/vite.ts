@@ -1,12 +1,18 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
-const viteLogger = createLogger();
+// Importing Vite dynamically avoids bundling it into the production build and
+// trying to resolve it at runtime. We declare a fallback logger that simply
+// proxies to console until we have the real Vite logger in development.
+const viteLogger = {
+  info: console.log.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console),
+};
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -20,6 +26,11 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Dynamically import Vite only in development
+  const { createServer: createViteServer, createLogger } = await import("vite");
+
+  const localLogger = createLogger();
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
@@ -30,9 +41,9 @@ export async function setupVite(app: Express, server: Server) {
     ...viteConfig,
     configFile: false,
     customLogger: {
-      ...viteLogger,
+      ...localLogger,
       error: (msg, options) => {
-        viteLogger.error(msg, options);
+        localLogger.error(msg, options);
         process.exit(1);
       },
     },
