@@ -10,9 +10,6 @@ kill_timeout = "5m"
 
 [build]
 
-[deploy]
-  release_command = "npm run build"
-
 [env]
 NODE_ENV = "production"
 PORT = "8080"
