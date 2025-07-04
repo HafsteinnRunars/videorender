@@ -128,8 +128,8 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     // Download thumbnail first (smaller, faster)
     await downloadFile(requestData.thumbnail_url, thumbnailPath);
     
-    // Download songs in batches of 3 to avoid overwhelming the server
-    const batchSize = 3;
+    // Download songs in batches of 6 to avoid overwhelming the server
+    const batchSize = 6;
     for (let i = 0; i < requestData.songs.length; i += batchSize) {
       const batch = requestData.songs.slice(i, i + batchSize);
       const batchPromises = batch.map((song, batchIndex) => {
@@ -211,7 +211,7 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     console.log('🎵 Creating final audio track (ultra-fast mode)...');
     const trimmedAudioPath = path.join(jobDir, 'final_audio.aac');
     await executeFFmpeg(
-      `cd "${jobDir}" && ffmpeg -f concat -safe 0 -i "${path.basename(concatFilePath)}" -t ${TARGET_DURATION} -c:a aac -b:a 48k -ar 22050 -ac 1 -threads 0 "${path.basename(trimmedAudioPath)}"`
+      `cd "${jobDir}" && ffmpeg -f concat -safe 0 -i "${path.basename(concatFilePath)}" -t ${TARGET_DURATION} -c:a aac -b:a 64k -ar 44100 -ac 2 -threads 8 "${path.basename(trimmedAudioPath)}"`
     );
     
     // Update job status to creating video
@@ -226,7 +226,7 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
     
     await executeFFmpeg(
-      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset ultrafast -crf 35 -tune stillimage -x264-params keyint=1200:min-keyint=1200:no-cabac:no-deblock:no-8x8dct:no-chroma-me:partitions=none:me=dia:subme=0:me_range=4:trellis=0:no-mbtree:no-weightb:no-mixed-refs:no-fast-pskip:aq-mode=0 -r 0.5 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} -threads 0 "${jobId}.mp4"`
+      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset veryfast -crf 28 -tune stillimage -x264-params keyint=600:min-keyint=600:ref=1:bframes=0:me=dia:subme=1:me_range=8:trellis=0:no-mbtree:no-weightb:no-mixed-refs:aq-mode=1 -r 1 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} -threads 8 -thread_type slice -thread_queue_size 1024 "${jobId}.mp4"`
     );
     
     // Move video to output directory
