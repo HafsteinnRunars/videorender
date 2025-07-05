@@ -7,7 +7,7 @@ import type { InsertVideoJob } from '@shared/schema';
 
 const TEMP_DIR = './temp';
 const OUTPUT_DIR = './output';
-const TARGET_DURATION = 300; // 5 minutes
+const TARGET_DURATION = 3600; // 60 minutes
 
 // Initialize directories
 async function initDirectories() {
