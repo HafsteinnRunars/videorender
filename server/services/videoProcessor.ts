@@ -234,7 +234,7 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     const outputVideoPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
     
     await executeFFmpeg(
-      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset ultrafast -crf 23 -tune stillimage -x264-params keyint=300:min-keyint=300:ref=1:bframes=0:me=dia:subme=0:me_range=4:trellis=0:no-mbtree:no-weightb:no-mixed-refs:aq-mode=0:no-cabac:no-deblock -r 2 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} -threads 8 -thread_type slice -thread_queue_size 4096 -max_muxing_queue_size 8192 -bufsize 32M -maxrate 15M "${jobId}.mp4"`
+      `cd "${jobDir}" && ffmpeg -loop 1 -i "${path.basename(thumbnailPath)}" -i "${path.basename(trimmedAudioPath)}" -c:v libx264 -preset ultrafast -crf 28 -tune stillimage -r 0.5 -c:a copy -pix_fmt yuv420p -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2" -movflags +faststart -t ${TARGET_DURATION} -threads 8 "${jobId}.mp4"`
     );
     
     // Move video to output directory
