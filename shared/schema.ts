@@ -22,6 +22,8 @@ export const videoJobs = pgTable("video_jobs", {
 export const songSchema = z.object({
   file_url: z.string().url(),
   length: z.number().positive(),
+  artist: z.string(),
+  title: z.string(),
 });
 
 export const insertVideoJobSchema = createInsertSchema(videoJobs).omit({
