@@ -217,9 +217,9 @@ export async function processVideo(jobId: string, requestData: InsertVideoJob, s
     
     // Skip individual concatenation - do everything in one ultra-fast step
     console.log('🎵 Creating final audio track (HIGH QUALITY mode)...');
-    const trimmedAudioPath = path.join(jobDir, 'final_audio.aac');
+    const trimmedAudioPath = path.join(jobDir, 'final_audio.mp4');
     await executeFFmpeg(
-      `cd "${jobDir}" && ffmpeg -f concat -safe 0 -i "${path.basename(concatFilePath)}" -t ${TARGET_DURATION} -c:a aac -b:a 256k -ar 48000 -ac 2 -aac_coder twoloop -profile:a aac_he_v2 -threads 8 -thread_queue_size 2048 -max_muxing_queue_size 4096 "${path.basename(trimmedAudioPath)}"`
+      `cd "${jobDir}" && ffmpeg -f concat -safe 0 -i "${path.basename(concatFilePath)}" -t ${TARGET_DURATION} -c:a aac -b:a 192k -ar 44100 -ac 2 -threads 8 -thread_queue_size 2048 -max_muxing_queue_size 4096 "${path.basename(trimmedAudioPath)}"`
     );
     
     // Update job status to creating video
